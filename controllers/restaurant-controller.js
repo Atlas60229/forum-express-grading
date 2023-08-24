@@ -32,10 +32,12 @@ const restController = {
         //       ...
         //    }] (9間restaurant)
         const favoritedRestaurantsId = req.user && req.user.FavoritedRestaurants.map(fr => fr.id)
+        const likedRestaurantsId = req.user && req.user.LikedRestaurants.map(fr => fr.id)
         const data = restaurants.rows.map(r => ({
           ...r,
           description: r.description.substring(0, 50),
-          isFavorited: favoritedRestaurantsId.includes(r.id)
+          isFavorited: favoritedRestaurantsId.includes(r.id),
+          isLiked: likedRestaurantsId.includes(r.id)
         }))
         return res.render('restaurants', {
           restaurants: data,
@@ -55,7 +57,8 @@ const restController = {
           include: { model: User },
           order: [['createdAt', 'Desc']]
         },
-        { model: User, as: 'FavoritedUsers' }
+        { model: User, as: 'FavoritedUsers' },
+        { model: User, as: 'LikedUsers' }
       ]
       // order: [[Comment, 'createdAt', 'DESC']] 若include的內容無separate屬性為true時則把order放在最頂層
     })
@@ -64,9 +67,11 @@ const restController = {
         return restaurant.increment('viewCounts', { by: 1 })
       }).then(restaurant => {
         const isFavorited = restaurant.FavoritedUsers.some(f => f.id === req.user.id)
+        const isLiked = restaurant.LikedUsers.some(f => f.id === req.user.id)
         return res.render('restaurant', {
           restaurant: restaurant.toJSON(),
-          isFavorited
+          isFavorited,
+          isLiked
         })
       })
       .catch(err => next(err))
@@ -105,6 +110,22 @@ const restController = {
           restaurants,
           comments
         })
+      })
+      .catch(err => next(err))
+  },
+  getTopRestaurants: (req, res, next) => {
+    return Restaurant.findAll({
+      include: [{ model: User, as: 'FavoritedUsers' }]
+    })
+      .then(restaurants => {
+        restaurants = restaurants.map(restaurants => ({
+          ...restaurants.toJSON(),
+          favoritedCount: restaurants.FavoritedUsers.length,
+          isFavorited: req.user && req.user.FavoritedRestaurants.some(FavoritedRestaurants => FavoritedRestaurants.id === restaurants.id)
+        }))
+        return restaurants.sort((a, b) => b.favoritedCount - a.favoritedCount).slice(0, 10)
+      }).then(restaurants => {
+        res.render('top-restaurants', { restaurants })
       })
       .catch(err => next(err))
   }
