@@ -5,14 +5,32 @@ const { imgurFileHandler } = require('../helpers/file-helpers')
 const userController = {
   getUser: (req, res, next) => {
     return Promise.all([
-      User.findByPk(req.params.id, { raw: true }),
-      Comment.findAndCountAll({ where: { userId: req.params.id }, include: Restaurant })
+      User.findByPk(req.params.id, {
+        include: [
+          { model: Restaurant, as: 'FavoritedRestaurants' },
+          { model: Restaurant, as: 'LikedRestaurants' },
+          { model: User, as: 'Followers' },
+          { model: User, as: 'Followings' }
+        ]
+      }),
+      Comment.findAndCountAll({ where: { userId: req.params.id }, include: [{ model: Restaurant }] })
     ]).then(([user, comments]) => {
       if (!user) throw new Error("User didn't exist")
-      const commentedRests = comments.rows.map(comment => comment.Restaurant.dataValues)
-      const commentCount = comments.count
 
-      res.render('users/profile', { user, commentedRests, commentCount })
+      const uniqueRestaurants = new Set()
+      const commentedRests = []
+
+      comments.rows.forEach(comment => {
+        const restaurant = comment.Restaurant
+        if (!uniqueRestaurants.has(restaurant.id)) {
+          uniqueRestaurants.add(restaurant.id)
+          commentedRests.push(restaurant.dataValues)
+        }
+      })
+
+      const commentCount = commentedRests.length
+
+      res.render('users/profile', { user: user.toJSON(), commentedRests, commentCount })
     })
       .catch(err => next(err))
   },
