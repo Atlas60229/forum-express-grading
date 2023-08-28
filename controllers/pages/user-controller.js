@@ -1,6 +1,6 @@
-const { User, Comment, Restaurant, Favorite, Like, Followship } = require('../models')
+const { User, Comment, Restaurant, Favorite, Like, Followship } = require('../../models')
 const bcrypt = require('bcryptjs')
-const { imgurFileHandler } = require('../helpers/file-helpers')
+const { imgurFileHandler } = require('../../helpers/file-helpers')
 
 const userController = {
   getUser: (req, res, next) => {
